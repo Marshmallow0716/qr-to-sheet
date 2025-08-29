@@ -1,0 +1,187 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QR Scanner → Google Sheet</title>
+  <style>
+    body { font-family: system-ui, Arial; max-width:960px; margin:12px auto; padding:12px; }
+    #reader { width: 100%; max-width: 480px; margin: 12px 0; }
+    .btn { padding: 8px 12px; margin:6px; cursor:pointer; border-radius:6px; border:1px solid #ccc; background:#f7f7f7; }
+    #status { margin-top:8px; color:green; }
+    #log { white-space:pre-wrap; margin-top:12px; border:1px dashed #ddd; padding:8px; max-height:220px; overflow:auto; }
+  </style>
+  <!-- html5-qrcode library (CDN) -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <h1>QR Scanner → Google Sheet</h1>
+  <p>Scan a QR code. The scanned text will be stored into your Google Sheet.</p>
+
+  <div>
+    <label for="appUrl">Apps Script URL:</label><br>
+    <input id="appUrl" style="width:100%" placeholder="Paste your Apps Script web app URL here" />
+  </div>
+
+  <div style="margin-top:12px;">
+    <button id="startBtn" class="btn">Start Scanner</button>
+    <button id="stopBtn" class="btn" disabled>Stop Scanner</button>
+  </div>
+
+  <div id="reader"></div>
+
+  <div>
+    <h3>Last scanned text</h3>
+    <textarea id="scannedText" rows="4" style="width:100%" readonly></textarea>
+  </div>
+
+  <div style="margin-top:8px;">
+    <button id="sendBtn" class="btn" disabled>Send to Google Sheet</button>
+    <span id="status"></span>
+  </div>
+
+  <div id="log"></div>
+
+<script>
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const sendBtn = document.getElementById('sendBtn');
+  const scannedTextEl = document.getElementById('scannedText');
+  const statusEl = document.getElementById('status');
+  const logEl = document.getElementById('log');
+  const appUrlInput = document.getElementById('appUrl');
+
+  // Replace with your Apps Script URL or paste in input
+  // const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/.../exec';
+  let APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxyekGfXYEjQrZ1y_vV-PxwBsjszFP4AXGornr_CYxhT_R-SlU4HAFPwjts9OKwQhAr/exec";
+
+  let html5QrcodeScanner;
+  let lastScanned = "";
+
+  function log(msg) {
+    console.log(msg);
+    logEl.textContent = new Date().toLocaleTimeString() + " — " + msg + "\n" + logEl.textContent;
+  }
+
+  function onScanSuccess(decodedText, decodedResult) {
+    // decodedText is the string content of QR code
+    lastScanned = decodedText;
+    scannedTextEl.value = decodedText;
+    sendBtn.disabled = false;
+    statusEl.textContent = "Scanned. Ready to send.";
+    log("Scanned: " + decodedText);
+
+    // If you want to auto-send on every scan uncomment the line below:
+    // sendScannedTextToSheet(decodedText);
+  }
+
+  function onScanFailure(error) {
+    // console.warn(`Scan failure: ${error}`);
+  }
+
+  startBtn.addEventListener('click', async () => {
+    APPS_SCRIPT_URL = (appUrlInput.value || "").trim();
+    if (!APPS_SCRIPT_URL) {
+      alert("Please paste your Apps Script web app URL in the field.");
+      return;
+    }
+
+    if (html5QrcodeScanner) {
+      log("Scanner already running");
+      return;
+    }
+
+    const readerDiv = document.getElementById("reader");
+    html5QrcodeScanner = new Html5Qrcode(/* element id */ "reader");
+
+    const config = {
+      fps: 10,
+      qrbox: { width: 250, height: 250 },
+      experimentalFeatures: { useBarCodeDetectorsIfSupported: true }
+    };
+
+    try {
+      // Start camera (prefer rear camera)
+      await html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        config,
+        onScanSuccess,
+        onScanFailure
+      );
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      statusEl.textContent = "Scanner running. Point camera at a QR code.";
+      log("Scanner started");
+    } catch (err) {
+      log("Could not start scanner: " + err);
+      alert("Could not start scanner. Check camera permission & secure context (https).");
+    }
+  });
+
+  stopBtn.addEventListener('click', async () => {
+    if (!html5QrcodeScanner) return;
+    await html5QrcodeScanner.stop();
+    html5QrcodeScanner.clear();
+    html5QrcodeScanner = null;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    statusEl.textContent = "Scanner stopped.";
+    log("Scanner stopped");
+  });
+
+  sendBtn.addEventListener('click', () => {
+    if (!lastScanned) {
+      alert("No scanned text to send.");
+      return;
+    }
+    sendScannedTextToSheet(lastScanned);
+  });
+
+  async function sendScannedTextToSheet(text) {
+  if (!APPS_SCRIPT_URL) {
+    alert("Paste your Apps Script URL first.");
+    return;
+  }
+  statusEl.textContent = "Sending...";
+  log("Sending to Apps Script: " + text);
+
+  // Use application/x-www-form-urlencoded to avoid CORS preflight
+  const payload = new URLSearchParams({
+    mode: "checkin",       // <-- tells the Apps Script to write to Check-in_Data
+    content: text,          // scanned QR text
+    scannedBy: navigator.userAgent,
+    extra: ""               // optional
+  }).toString();
+
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+      },
+      body: payload
+    });
+
+    const json = await resp.json();
+    if (json.status === "success") {
+      statusEl.textContent = "Saved to Database ✅";
+      log("Saved: " + JSON.stringify(json));
+      sendBtn.disabled = true;
+      // Optionally clear scanned text:
+      // scannedTextEl.value = "";
+    } else {
+      statusEl.textContent = "Error saving.";
+      log("Error response: " + JSON.stringify(json));
+      alert("Error: " + (json.message || "Unknown"));
+    }
+  } catch (err) {
+    statusEl.textContent = "Network error.";
+    log("Network error: " + err);
+    alert("Failed to send. See console for details.");
+  }
+}
+
+  // Optional: quick paste buttons or testing helper
+</script>
+</body>
+</html>
