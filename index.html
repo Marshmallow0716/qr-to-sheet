@@ -110,6 +110,41 @@
 
   /* ---------- GENERAL LAYOUT ---------- */
   main { padding:12px; }
+
+  /* ---------- POPUP MODAL ---------- */
+  #popupModal {
+    display:none;
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background:rgba(0,0,0,0.7);
+    z-index:200;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+  #popupModal div {
+    background:#1E223D;
+    padding:20px;
+    border-radius:8px;
+    text-align:center;
+    width:280px;
+    box-shadow:0 0 12px #F59124;
+  }
+  #popupModal h3 {
+    color:#F59124;
+    margin-bottom:10px;
+  }
+  #popupModal p {
+    color:#FFFFFF;
+    font-family:'Consolas', monospace;
+    word-break:break-word;
+    margin-bottom:12px;
+    font-size:14px;
+  }
+  #popupModal .btn {
+    width:100%;
+  }
 </style>
 
 <!-- Html5Qrcode library -->
@@ -127,8 +162,8 @@
     <ol>
       <li>Click the <strong>Start Scanner</strong> button to activate your camera.</li>
       <li>Point your device at the QR code you received.</li>
-      <li>Once scanned, the QR content will appear in the <em>Last Scanned Data</em> box.</li>
-      <li>Click <strong>Send to Database</strong> to store the scanned information securely.</li>
+      <li>Once scanned, a popup will appear showing the scanned data.</li>
+      <li>Click <strong>Send to Database</strong> in the popup to store the scanned information securely.</li>
       <li>The <em>Status</em> and <em>Log</em> sections will provide real-time feedback for each action.</li>
       <li>Click <strong>Stop Scanner</strong> when done.</li>
     </ol>
@@ -147,21 +182,34 @@
   </div>
 
   <div style="margin-top:8px; text-align:center;">
-    <button id="sendBtn" class="btn" disabled>Send to Database</button>
     <span id="status"></span>
   </div>
 
   <div id="log"></div>
 </main>
 
+<!-- Popup Modal -->
+<div id="popupModal">
+  <div>
+    <h3>QR Detected!</h3>
+    <p id="popupText"></p>
+    <button id="popupSendBtn" class="btn">Send to Database</button>
+    <button id="popupCloseBtn" class="btn" style="background:#444; color:#F59124; margin-top:6px;">Cancel</button>
+  </div>
+</div>
+
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
-  const sendBtn = document.getElementById('sendBtn');
   const scannedTextEl = document.getElementById('scannedText');
   const statusEl = document.getElementById('status');
   const logEl = document.getElementById('log');
+
+  const popupModal = document.getElementById('popupModal');
+  const popupText = document.getElementById('popupText');
+  const popupSendBtn = document.getElementById('popupSendBtn');
+  const popupCloseBtn = document.getElementById('popupCloseBtn');
 
   const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_EH6VLX0ZxXQC-xsGHR_r2SSmf2C4WjDTr2-Saj8w2vazvbgw7R8c-gXjKWd8xWfs/exec";
 
@@ -176,26 +224,30 @@ document.addEventListener("DOMContentLoaded", () => {
   function onScanSuccess(decodedText) {
     lastScanned = decodedText;
     scannedTextEl.value = decodedText;
-    sendBtn.disabled = false;
     statusEl.textContent = "Scanned. Ready to send.";
     log("Scanned: " + decodedText);
+
+    // Pause scanner
+    if(html5QrcodeScanner) html5QrcodeScanner.pause(true);
+
+    // Show popup
+    popupText.textContent = decodedText;
+    popupModal.style.display = "flex";
   }
 
   function onScanFailure(error) {}
 
   startBtn.addEventListener('click', async () => {
-    if (html5QrcodeScanner) { log("Scanner already running"); return; }
-
+    if(html5QrcodeScanner){ log("Scanner already running"); return; }
     html5QrcodeScanner = new Html5Qrcode("reader");
     const config = { fps:10, qrbox:{width:250,height:250}, experimentalFeatures:{useBarCodeDetectorsIfSupported:true} };
-
-    try {
+    try{
       await html5QrcodeScanner.start({ facingMode:"environment" }, config, onScanSuccess, onScanFailure);
       startBtn.disabled = true;
       stopBtn.disabled = false;
       statusEl.textContent = "Scanner running. Point camera at a QR code.";
       log("Scanner started");
-    } catch(err) {
+    }catch(err){
       log("Could not start scanner: " + err);
       alert("Could not start scanner. Check camera permission & secure context (https).");
     }
@@ -212,22 +264,24 @@ document.addEventListener("DOMContentLoaded", () => {
     log("Scanner stopped");
   });
 
-  sendBtn.addEventListener('click', () => {
-    if(!lastScanned){ alert("No scanned text to send."); return; }
-    sendScannedTextToSheet(lastScanned);
+  popupSendBtn.addEventListener('click', async () => {
+    const text = popupText.textContent;
+    await sendScannedTextToSheet(text);
+    popupModal.style.display = "none";
+    scannedTextEl.value = text;
+    if(html5QrcodeScanner) html5QrcodeScanner.resume();
+  });
+
+  popupCloseBtn.addEventListener('click', () => {
+    popupModal.style.display = "none";
+    if(html5QrcodeScanner) html5QrcodeScanner.resume();
   });
 
   async function sendScannedTextToSheet(text){
     statusEl.textContent = "Sending...";
     log("Sending to Apps Script: " + text);
-
-    const payload = new URLSearchParams({
-      mode:"checkin",
-      content:text,
-      scannedBy:navigator.userAgent
-    }).toString();
-
-    try {
+    const payload = new URLSearchParams({ mode:"checkin", content:text, scannedBy:navigator.userAgent }).toString();
+    try{
       await fetch(APPS_SCRIPT_URL,{
         method:"POST",
         headers:{ "Content-Type":"application/x-www-form-urlencoded;charset=UTF-8" },
@@ -235,14 +289,14 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       statusEl.textContent = "Saved to Database ✅";
       log("Saved (assuming success due to CORS/network limitation)");
-      sendBtn.disabled = true;
-    } catch(err){
+    }catch(err){
       console.warn("Network error (ignored, data likely saved):", err);
       statusEl.textContent = "Saved to Database ✅";
-      sendBtn.disabled = true;
     }
   }
+
 });
 </script>
+
 </body>
 </html>
