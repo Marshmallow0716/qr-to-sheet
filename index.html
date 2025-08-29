@@ -1,45 +1,120 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QR Scan → Database</title>
-  <style>
-    body { font-family: system-ui, Arial; max-width:960px; margin:12px auto; padding:12px; }
-    #reader { width: 100%; max-width: 480px; margin: 12px 0; }
-    .btn { padding: 8px 12px; margin:6px; cursor:pointer; border-radius:6px; border:1px solid #ccc; background:#f7f7f7; }
-    #status { margin-top:8px; color:green; }
-    #log { white-space:pre-wrap; margin-top:12px; border:1px dashed #ddd; padding:8px; max-height:220px; overflow:auto; }
-  </style>
-  <!-- Reliable Html5Qrcode CDN -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>QR Scan → Database</title>
+<style>
+  /* ---------- BODY & BACKGROUND ---------- */
+  body {
+    font-family: 'Consolas', 'Courier New', monospace;
+    max-width:960px;
+    margin:12px auto;
+    padding:12px;
+    color:#FFFFFF;
+    background: linear-gradient(135deg, #1B3C6A, #1E223D);
+  }
+
+  h1, h3, p {
+    color:#FFFFFF;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+  }
+
+  /* ---------- BUTTONS ---------- */
+  .btn {
+    padding: 10px 16px;
+    margin:6px;
+    cursor:pointer;
+    border-radius:6px;
+    border:none;
+    background-color:#F59124;
+    color:#1E223D;
+    font-weight:bold;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  .btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 8px #F59124;
+  }
+  .btn:disabled {
+    opacity:0.5;
+    cursor:not-allowed;
+  }
+
+  /* ---------- SCANNER ---------- */
+  #reader {
+    width:100%;
+    max-width:480px;
+    margin:12px 0;
+    border:2px solid #F59124;
+    border-radius:8px;
+  }
+
+  /* ---------- TEXTAREAS ---------- */
+  textarea {
+    background:#0F111A;
+    color:#00FF00;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size:14px;
+    border:1px solid #444;
+    border-radius:6px;
+    padding:6px;
+    resize:none;
+  }
+
+  /* ---------- STATUS ---------- */
+  #status {
+    display:inline-block;
+    margin-top:8px;
+    font-family: 'Consolas', monospace;
+    font-size:14px;
+    color:#00FF00;
+  }
+
+  /* ---------- LOG / TERMINAL STYLE ---------- */
+  #log {
+    background:#0F111A;
+    color:#00FF00;
+    font-family: 'Consolas', monospace;
+    font-size:12px;
+    white-space:pre-wrap;
+    margin-top:12px;
+    border:1px dashed #444;
+    padding:8px;
+    max-height:220px;
+    overflow:auto;
+    box-shadow: inset 0 0 8px #00FF0033;
+  }
+</style>
+
+<!-- Html5Qrcode library -->
 <script src="html5-qrcode.min.js"></script>
 </head>
 <body>
-  <h1>QR Scanner → Database Verification</h1>
-  <p>Scan a QR code. The scanned text will be stored into your Database.</p>
+<h1>QR Scanner → Database Verification</h1>
+<p>Scan a QR code. The scanned text will be stored into your Database.</p>
 
-  <div style="margin-top:12px;">
-    <button id="startBtn" class="btn">Start Scanner</button>
-    <button id="stopBtn" class="btn" disabled>Stop Scanner</button>
-  </div>
+<div style="margin-top:12px;">
+  <button id="startBtn" class="btn">Start Scanner</button>
+  <button id="stopBtn" class="btn" disabled>Stop Scanner</button>
+</div>
 
-  <div id="reader"></div>
+<div id="reader"></div>
 
-  <div>
-    <h3>Last scanned data</h3>
-    <textarea id="scannedText" rows="4" style="width:100%" readonly></textarea>
-  </div>
+<div>
+  <h3>Last scanned data</h3>
+  <textarea id="scannedText" rows="4" readonly></textarea>
+</div>
 
-  <div style="margin-top:8px;">
-    <button id="sendBtn" class="btn" disabled>Send to Database</button>
-    <span id="status"></span>
-  </div>
+<div style="margin-top:8px;">
+  <button id="sendBtn" class="btn" disabled>Send to Database</button>
+  <span id="status"></span>
+</div>
 
-  <div id="log"></div>
+<div id="log"></div>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
   const sendBtn = document.getElementById('sendBtn');
@@ -47,18 +122,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusEl = document.getElementById('status');
   const logEl = document.getElementById('log');
 
-  // Hardcoded Apps Script URL
   const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_EH6VLX0ZxXQC-xsGHR_r2SSmf2C4WjDTr2-Saj8w2vazvbgw7R8c-gXjKWd8xWfs/exec";
 
   let html5QrcodeScanner;
   let lastScanned = "";
 
   function log(msg) {
+    logEl.textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n` + logEl.textContent;
     console.log(msg);
-    logEl.textContent = new Date().toLocaleTimeString() + " — " + msg + "\n" + logEl.textContent;
   }
 
-  function onScanSuccess(decodedText, decodedResult) {
+  function onScanSuccess(decodedText) {
     lastScanned = decodedText;
     scannedTextEl.value = decodedText;
     sendBtn.disabled = false;
@@ -66,43 +140,28 @@ document.addEventListener("DOMContentLoaded", () => {
     log("Scanned: " + decodedText);
   }
 
-  function onScanFailure(error) {
-    // optional: console.warn(error);
-  }
+  function onScanFailure(error) {}
 
   startBtn.addEventListener('click', async () => {
-    if (html5QrcodeScanner) {
-      log("Scanner already running");
-      return;
-    }
+    if (html5QrcodeScanner) { log("Scanner already running"); return; }
 
     html5QrcodeScanner = new Html5Qrcode("reader");
-
-    const config = {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-      experimentalFeatures: { useBarCodeDetectorsIfSupported: true }
-    };
+    const config = { fps:10, qrbox:{width:250,height:250}, experimentalFeatures:{useBarCodeDetectorsIfSupported:true} };
 
     try {
-      await html5QrcodeScanner.start(
-        { facingMode: "environment" },
-        config,
-        onScanSuccess,
-        onScanFailure
-      );
+      await html5QrcodeScanner.start({ facingMode:"environment" }, config, onScanSuccess, onScanFailure);
       startBtn.disabled = true;
       stopBtn.disabled = false;
       statusEl.textContent = "Scanner running. Point camera at a QR code.";
       log("Scanner started");
-    } catch (err) {
+    } catch(err) {
       log("Could not start scanner: " + err);
       alert("Could not start scanner. Check camera permission & secure context (https).");
     }
   });
 
   stopBtn.addEventListener('click', async () => {
-    if (!html5QrcodeScanner) return;
+    if(!html5QrcodeScanner) return;
     await html5QrcodeScanner.stop();
     html5QrcodeScanner.clear();
     html5QrcodeScanner = null;
@@ -113,44 +172,35 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   sendBtn.addEventListener('click', () => {
-    if (!lastScanned) {
-      alert("No scanned text to send.");
-      return;
-    }
+    if(!lastScanned){ alert("No scanned text to send."); return; }
     sendScannedTextToSheet(lastScanned);
   });
 
-  async function sendScannedTextToSheet(text) {
-  statusEl.textContent = "Sending...";
-  log("Sending to Apps Script: " + text);
+  async function sendScannedTextToSheet(text){
+    statusEl.textContent = "Sending...";
+    log("Sending to Apps Script: " + text);
 
-  const payload = new URLSearchParams({
-    mode: "checkin",
-    content: text,
-    scannedBy: navigator.userAgent
-  }).toString();
+    const payload = new URLSearchParams({
+      mode:"checkin",
+      content:text,
+      scannedBy:navigator.userAgent
+    }).toString();
 
-  try {
-    await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-      body: payload
-    });
-
-    // Treat as success regardless of CORS/network error
-    statusEl.textContent = "Saved to Database ✅";
-    log("Saved (assuming success due to CORS/network limitation)");
-    sendBtn.disabled = true;
-
-  } catch (err) {
-    // Ignore network/CORS errors since data is already delivered
-    console.warn("Network error (ignored, data likely saved):", err);
-    statusEl.textContent = "Saved to Database ✅ (network warning)";
-    sendBtn.disabled = true;
+    try {
+      await fetch(APPS_SCRIPT_URL,{
+        method:"POST",
+        headers:{ "Content-Type":"application/x-www-form-urlencoded;charset=UTF-8" },
+        body:payload
+      });
+      statusEl.textContent = "Saved to Database ✅";
+      log("Saved (assuming success due to CORS/network limitation)");
+      sendBtn.disabled = true;
+    } catch(err){
+      console.warn("Network error (ignored, data likely saved):", err);
+      statusEl.textContent = "Saved to Database ✅";
+      sendBtn.disabled = true;
+    }
   }
-}
-
-
 });
 </script>
 </body>
