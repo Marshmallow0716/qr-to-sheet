@@ -9,15 +9,37 @@
   body {
     font-family: 'Consolas', 'Courier New', monospace;
     max-width:960px;
-    margin:12px auto;
-    padding:12px;
+    margin:0 auto;
+    padding:0;
     color:#FFFFFF;
     background: linear-gradient(135deg, #1B3C6A, #1E223D);
   }
 
-  h1, h3, p {
+  /* ---------- STICKY HEADER ---------- */
+  header {
+    position: sticky;
+    top:0;
+    background: linear-gradient(135deg, #1B3C6A, #1E223D);
+    padding: 12px 0;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    z-index:100;
+  }
+  header img {
+    height:60px;
+    object-fit:contain;
+  }
+
+  /* ---------- INSTRUCTIONS ---------- */
+  #instructions {
+    margin: 16px 12px;
+    padding: 12px;
+    background: rgba(15,17,26,0.8);
+    border:1px solid #444;
+    border-radius:8px;
     color:#FFFFFF;
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+    line-height:1.5;
+    font-size:14px;
   }
 
   /* ---------- BUTTONS ---------- */
@@ -45,7 +67,7 @@
   #reader {
     width:100%;
     max-width:480px;
-    margin:12px 0;
+    margin:12px auto;
     border:2px solid #F59124;
     border-radius:8px;
   }
@@ -78,40 +100,59 @@
     font-family: 'Consolas', monospace;
     font-size:12px;
     white-space:pre-wrap;
-    margin-top:12px;
+    margin:12px;
     border:1px dashed #444;
     padding:8px;
     max-height:220px;
     overflow:auto;
     box-shadow: inset 0 0 8px #00FF0033;
   }
+
+  /* ---------- GENERAL LAYOUT ---------- */
+  main { padding:12px; }
 </style>
 
 <!-- Html5Qrcode library -->
 <script src="html5-qrcode.min.js"></script>
 </head>
 <body>
-<h1>QR Scanner → Database Verification</h1>
-<p>Scan a QR code. The scanned text will be stored into your Database.</p>
 
-<div style="margin-top:12px;">
-  <button id="startBtn" class="btn">Start Scanner</button>
-  <button id="stopBtn" class="btn" disabled>Stop Scanner</button>
-</div>
+<header>
+  <img src="youth-home-rizal-logo-white.png" alt="Logo">
+</header>
 
-<div id="reader"></div>
+<main>
+  <div id="instructions">
+    <h3>How to use the QR Scanner System:</h3>
+    <ol>
+      <li>Click the <strong>Start Scanner</strong> button to activate your camera.</li>
+      <li>Point your device at the QR code you received.</li>
+      <li>Once scanned, the QR content will appear in the <em>Last Scanned Data</em> box.</li>
+      <li>Click <strong>Send to Database</strong> to store the scanned information securely.</li>
+      <li>The <em>Status</em> and <em>Log</em> sections will provide real-time feedback for each action.</li>
+      <li>Click <strong>Stop Scanner</strong> when done.</li>
+    </ol>
+  </div>
 
-<div>
-  <h3>Last scanned data</h3>
-  <textarea id="scannedText" rows="4" readonly></textarea>
-</div>
+  <div style="margin-top:12px; text-align:center;">
+    <button id="startBtn" class="btn">Start Scanner</button>
+    <button id="stopBtn" class="btn" disabled>Stop Scanner</button>
+  </div>
 
-<div style="margin-top:8px;">
-  <button id="sendBtn" class="btn" disabled>Send to Database</button>
-  <span id="status"></span>
-</div>
+  <div id="reader"></div>
 
-<div id="log"></div>
+  <div>
+    <h3>Last scanned data</h3>
+    <textarea id="scannedText" rows="4" readonly></textarea>
+  </div>
+
+  <div style="margin-top:8px; text-align:center;">
+    <button id="sendBtn" class="btn" disabled>Send to Database</button>
+    <span id="status"></span>
+  </div>
+
+  <div id="log"></div>
+</main>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
