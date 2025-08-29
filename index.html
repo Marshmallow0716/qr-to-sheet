@@ -15,11 +15,11 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
 </head>
 <body>
-  <h1>QR Scanner → Google Sheet</h1>
-  <p>Scan a QR code. The scanned text will be stored into your Google Sheet.</p>
+  <h1>QR Scanner → Youth-Fun-Run-Verification</h1>
+  <p>Scan a QR code. The scanned text will be stored into your Database.</p>
 
   <div>
-    <label for="appUrl">Apps Script URL:</label><br>
+    <label for="appUrl">Link the Apps Script URL:</label><br>
     <input id="appUrl" style="width:100%" placeholder="Paste your Apps Script web app URL here" />
   </div>
 
@@ -31,12 +31,12 @@
   <div id="reader"></div>
 
   <div>
-    <h3>Last scanned text</h3>
+    <h3>Last scanned data</h3>
     <textarea id="scannedText" rows="4" style="width:100%" readonly></textarea>
   </div>
 
   <div style="margin-top:8px;">
-    <button id="sendBtn" class="btn" disabled>Send to Google Sheet</button>
+    <button id="sendBtn" class="btn" disabled>Send to Database</button>
     <span id="status"></span>
   </div>
 
